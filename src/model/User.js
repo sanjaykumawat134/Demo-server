@@ -1,0 +1,105 @@
+const mongoose = require("mongoose");
+const validator = require("validator");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    trim: true,
+    required: true,
+  },
+  email: {
+    type: String,
+    unique: true,
+    required: true,
+    trim: true,
+    lowercase: true,
+    validate(value) {
+      if (!validator.default.isEmail(value)) {
+        throw new Error("enter a valid email");
+      }
+    },
+  },
+  phone:{
+    type:String,
+    required: true,
+    validate(value) {
+        if (!validator.default.isMobilePhone(value)) {
+          throw new Error("enter a valid mobile number");
+        }
+      },
+  },
+  password: {
+    type: String,
+    required: true,
+    validate(value) {
+      if (value.toLowerCase().includes("password")) {
+        throw new Error("Password cannot contain password");
+      }
+      if (value.toLowerCase().length < 6) {
+        throw new Error("Password is too short");
+      }
+      if (
+        !validator.default.isStrongPassword(value, {
+          minLength: 8,
+          minLowercase: 1,
+          minUppercase: 1,
+          minNumbers: 1,
+          minSymbols: 1,
+        })
+      ) {
+        throw new Error("Password is too weak ...!");
+      }
+    },
+  },
+  tokens: [
+    {
+      token: {
+        type: String,
+        required: true,
+      },
+    },
+  ],
+});
+
+//generate token
+userSchema.methods.generateToken = async function () {
+  const user = this;
+  const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET, {
+    expiresIn: "1h",
+  });
+  user.tokens = user.tokens.concat({ token });
+  await user.save();
+  return token;
+};
+//find user by its credientials
+userSchema.statics.findUserByCredientials = async function (email, password) {
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new Error("unable to login ...!");
+  }
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    throw new Error("unable to login...!");
+  }
+  return user;
+};
+//hash password before saving
+userSchema.pre("save", async function (next) {
+  const user = this;
+  if (user.isModified("password")) {
+    user.password = await bcrypt.hash(user.password, 8);
+  }
+  next();
+});
+//remove unwanted information from user object
+userSchema.methods.toJSON = function () {
+  const user = this;
+  const userobj = user.toObject();
+  delete userobj.password;
+  delete userobj.tokens;
+  return userobj;
+};
+const User = mongoose.model("User", userSchema);
+
+module.exports = User;
