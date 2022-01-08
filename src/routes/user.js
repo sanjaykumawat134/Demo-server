@@ -14,15 +14,7 @@ userRoutes.get("/all",auth,async (req,res)=>{
            res.status(400).send(error);
     }
 })
-// //get user by id
-// userRoutes.get("/:id",async (req,res)=>{
-//    try{
-//         const _id = req.params.id;
-//         const user = await 
-//    }catch(error){
 
-//    }
-// });
 //user register
 userRoutes.post("/register", async (req, res) => {
     try {
